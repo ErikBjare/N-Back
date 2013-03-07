@@ -1,0 +1,40 @@
+N-Back
+Written by Erik Bjäreholt in Python using PyGame.
+
+
+Versions
+0.1 - February 2012
+0.2.1a - March 2012
+
+
+About N-Back
+
+Single N-Back
+The n-back task is a Continuous Performance Task that is commonly used in 
+neuroimaging to stimulate brain activity in test subjects. It was introduced 
+by Wayne Kirchner in 1958.
+
+The subject is presented with a sequence of stimuli, and the task consists of 
+indicating when the current stimulus matches the one from n steps earlier in 
+the sequence. [1]
+
+Dual N-Back
+The dual-task n-back task was proposed by Susanne Jaeggi et al. in 2003.
+In this variation, two independent sequences are presented simultaneously, 
+typically using different types of stimuli, such as one auditory and one visual. [1]
+
+A 2008 research paper claimed that practicing a dual n-back task can increase 
+fluid intelligence (Gf), as measured in several different standard tests. [1]
+
+The 2008 study was replicated in 2010 with results indicating that practising 
+single n-back may be almost equal to dual n-back in increasing the score on 
+tests measuring Gf. [1]
+
+
+For more info on N-Back, visit: http://www.gwern.net/DNB%20FAQ
+
+Sources:
+1 - http://en.wikipedia.org/wiki/N-back
+
+
+Source code available on GitHub: https://github.com/ErikBjare/N-Back/

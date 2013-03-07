@@ -1,0 +1,5 @@
+title=N-Back
+author=Erik Bjareholt
+description=A brain-exercise game for Windows, Mac OS X, Unix and Android.
+api=1
+orientation=landscape

@@ -1,0 +1,46 @@
+Documentation for N-Back
+Version: see main.Settings
+
+
+main
+Main file used to launch the application by instantiating the Main class
+and calling its run function.
+
+main.Main
+Initializes PyGame, eventual android functionality and loads settings.
+
+main.Settings
+Contains Settings Class
+
+main.Settings.repeatProbability
+Repeat probability, the bigger the number, the less unlikely is the chance 
+that the new slide is the same one as the one before. 
+For example:
+ 1 means 1 out of 1 probability
+ 5 means 1 out of 5 probability. 
+Numbers higher than 8 won't follow this pattern because of the random
+position generation in gui.Game.nextSlide.
+NOTE: Not 100% correct yet...
+
+
+main.nBack
+Contains NBack class
+
+main.nBack.NBack
+Contains code to run the game.
+
+main.nBack.NBack.gui
+GUI file, contains the Activity class and derivatives of it such as
+Menu and Game.
+
+main.nBack.NBack.gui.Activity
+The main Activity class.
+
+main.nBack.NBack.gui.Menu
+The Menu activity.
+
+main.nBack.NBack.gui.Game
+The Game activity.
+
+main.nBack.NBack.gui.Game.nextSlide
+Calculates the next slide.
