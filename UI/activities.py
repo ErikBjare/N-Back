@@ -1,30 +1,33 @@
-'''
-You should have received a copy of the GNU General Public License 
+"""
+You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 Created on Mar 11, 2012
 
 @author: Erik Bjareholt
-'''
+"""
 
 import random
 
 import pygame
 from pygame.locals import *
+from settings import Settings
 
 import widgets
 
+
 class Activity:
-    def __init__(self, windowSize, android):
-        self.surface = pygame.Surface(windowSize).convert()
-        self.windowSize = windowSize
-        self.android = android
+    def __init__(self):
+        settings = Settings.Instance()
+        self.surface = pygame.Surface(settings.windowSize).convert()
+        self.windowSize = settings.windowSize
+        self.android = settings.android
         
         
 class Menu(Activity):
-    def __init__(self, windowSize, android, version):
-        Activity.__init__(self, windowSize, android)
-        self.version = version
+    def __init__(self):
+        Activity.__init__(self)
+        self.version = Settings.Instance().version
         
         self.titleFont = pygame.font.Font("fonts/freesansbold.ttf", 50)
         self.menuFont = pygame.font.Font("fonts/freesansbold.ttf", 20)
@@ -40,8 +43,8 @@ class Menu(Activity):
         titleText = self.titleFont.render("Welcome to N-Back!", True, (255,255,0))
         titleVersion = self.smallFont.render("Version " + self.version, True, (255,255,0))
         self.title = pygame.Surface((650,200)).convert()
-        self.title.blit(titleText, ( (self.title.get_width()/2-titleText.get_width()/2), (self.title.get_height()/2-titleText.get_height()/2) ))
-        self.title.blit(titleVersion, ( (self.title.get_width()/2-titleVersion.get_width()/2), (self.title.get_height()/2-titleVersion.get_height()/2)+40 ))
+        self.title.blit(titleText, (self.title.get_width()/2-titleText.get_width()/2, self.title.get_height()/2-titleText.get_height()/2))
+        self.title.blit(titleVersion, (self.title.get_width()/2-titleVersion.get_width()/2, (self.title.get_height()/2-titleVersion.get_height()/2)+40))
         
         self.controlsBox = widgets.TextBox("Controls\n  New Game - {0}\n  Trigger N-Back - {1}".format(newgameKey, triggerKey), self.menuFont, (270,100), color=(0,0,50), textColor=(255,255,0), radius=10)
         
@@ -54,51 +57,59 @@ class Menu(Activity):
     
     
 class Game(Activity):
-    cornerRadius = 10
+    corner_radius = 10
     
-    boardSurfaceSize = (300+cornerRadius*2, 300+cornerRadius*2)
-    boardSurfaceColor = (200, 200, 200)
-    cellSurfaceSize = (100, 100)
-    cellSurfaceColor = (50, 50, 150)
+    board_surface_size = (300+corner_radius*2, 300+corner_radius*2)
+    board_surface_color = (200, 200, 200)
+    cell_surface_size = (100, 100)
+    cell_surface_color = (50, 50, 50)
+    background_color = (255, 255, 255)
     
-    positions = {1:(0+cornerRadius, 0+cornerRadius),   2:(100+cornerRadius, 0+cornerRadius),   3:(200+cornerRadius, 0+cornerRadius), 
-                 4:(0+cornerRadius, 100+cornerRadius), 5:(100+cornerRadius, 100+cornerRadius), 6:(200+cornerRadius, 100+cornerRadius),
-                 7:(0+cornerRadius, 200+cornerRadius), 8:(100+cornerRadius, 200+cornerRadius), 9:(200+cornerRadius, 200+cornerRadius)}
-    
-    def __init__(self, windowSize, android):
-        Activity.__init__(self, windowSize, android)
-        
+    def __init__(self):
+        Activity.__init__(self)
+        self.settings = Settings.Instance()
+
+        self.results = {}
+        self.history = []
+        self.reset()
+
+        self.positions = {i+1: (self.corner_radius + 100*(i % 3),
+                                self.corner_radius + 100*(int(i/3)))
+                          for i in range(9)}
+
         self.normalFont = pygame.font.Font("fonts/freesansbold.ttf", 20)
         self.smallFont = pygame.font.Font("fonts/freesansbold.ttf", 15)
         self.cellFont = pygame.font.Font("fonts/freesansbold.ttf", 70)
         
-        self.showSlide = False
-        self.identified = False
-        
-        self.boardSurfaceBase = widgets.Box(self.boardSurfaceSize, self.boardSurfaceColor, self.cornerRadius).draw()
-        self.cellSurfaceBase = widgets.Box(self.cellSurfaceSize, self.cellSurfaceColor, self.cornerRadius).draw()
-        
+        self.show_answer = False
+        self.triggered = False
+
     def draw(self):
-        self.surface.fill((255,255,255))
-        self.boardSurface = pygame.Surface.copy(self.boardSurfaceBase)
-        self.cellSurface = pygame.Surface.copy(self.cellSurfaceBase)
-        
-        if self.showSlide:
+        self.surface.fill(self.background_color)
+
+        board_surface_base = widgets.Box(self.board_surface_size, self.board_surface_color, self.corner_radius).draw()
+        board_surface = pygame.Surface.copy(board_surface_base)
+
+        if not self.show_answer or not self.early_slide():
+            cell_surface_base = widgets.Box(self.cell_surface_size, self.cell_surface_color, self.corner_radius).draw()
+            cell_surface = pygame.Surface.copy(cell_surface_base)
+
             if self.settings.drawNumber:
-                cellNumber = self.cellFont.render(str(self.history[-1]), True, (255,255,0))
-                self.cellSurface.blit(cellNumber, (50-cellNumber.get_width()/2,50-cellNumber.get_height()/2))
-            self.boardSurface.blit(self.cellSurface, (self.positionX, self.positionY, 100, 100))
+                cell_number = self.cellFont.render(str(self.history[-1]), True, (255, 255, 255))
+                cell_surface.blit(cell_number, (50-cell_number.get_width()/2, 50-cell_number.get_height()/2))
+            board_surface.blit(cell_surface, (self.positionX, self.positionY, 100, 100))
         
-        self.surface.blit(self.boardSurface, ((self.windowSize[0]-self.boardSurface.get_width())/2, (self.windowSize[1]-self.boardSurface.get_height())/2))
+        self.surface.blit(board_surface, ((self.windowSize[0]-board_surface.get_width())/2,
+                                          (self.windowSize[1]-board_surface.get_height())/2))
         
         return self.surface
-        
-    def start(self, settings):
-        self.settings = settings
-        
-        self.results = [0,0,0,0] # Correct, Avoid, Miss, Wrong
-        
+
+    def reset(self):
+        self.results = {"correct": 0, "avoid": 0, "miss": 0, "wrong": 0}
         self.history = []
+
+    def start(self):
+        self.reset()
         self.nextSlide()
         
         pygame.time.set_timer(USEREVENT+1, self.settings.slideTime)
@@ -112,53 +123,103 @@ class Game(Activity):
         self.drawMenu = not self.drawMenu
         
     def stop(self):
-        print("Correct: {0}\nWrong: {1}\nAvoided: {2}\nMissed: {3}".format(self.results[0], self.results[3], self.results[1], self.results[2]))
+        self.save()
+        print("Correct: {correct}\nWrong: {wrong}\nAvoided: {avoid}\nMissed: {miss}".format(**self.results))
         pygame.time.set_timer(USEREVENT+1, 0)
-    
+        pygame.time.set_timer(QUIT, self.settings.slideTime)
+
+    def save(self):
+        """Saves result to CSV"""
+        print("Saving results to CSV...")
+        with open("./output.csv", "r+w") as f:
+            f.read()
+            write_data = "\n{correct},{wrong},{avoid},{miss}".format(**self.results)
+            f.write(write_data)
+
+    def setNoAnswer(self):
+        self.cell_surface_color = (50, 50, 50)
+
+    def setCorrectAnswer(self):
+        self.cell_surface_color = (25, 200, 25)
+
+    def setWrongAnswer(self):
+        self.cell_surface_color = (200, 25, 25)
+
+    def early_slide(self):
+        return len(self.history) < 1+self.settings.nBack
+
+    def trigger(self):
+        if self.early_slide():
+            print("Too early!")
+            return
+
+        if not self.triggered:
+            self.triggered = True
+            self.checkAnswer()
+        else:
+            print("Already triggered")
+
+    def checkAnswer(self):
+        if self.early_slide():
+            return
+
+        nBackPos = self.history[-(1+self.settings.nBack)]
+        pos = self.currentPosition()
+
+        if self.triggered:
+            if nBackPos == pos:
+                self.results["correct"] += 1
+                self.setCorrectAnswer()
+                print("Correct, {0} is equal to {1} with nBack={2}.".format(nBackPos, pos, self.settings.nBack))
+            elif nBackPos != pos:
+                self.results["wrong"] += 1
+                self.setWrongAnswer()
+                print("Wrong, {0} is not equal to {1} with nBack={2}.".format(nBackPos, pos, self.settings.nBack))
+        else:
+            if nBackPos != pos:
+                self.results["avoid"] += 1
+                self.setCorrectAnswer()
+                print("Avoided it, {0} is not equal to {1} with nBack={2}.".format(nBackPos, pos, self.settings.nBack))
+            elif nBackPos == pos:
+                self.results["miss"] += 1
+                self.setWrongAnswer()
+                print("Missed it, {0} is equal to {1} with nBack={2}.".format(nBackPos, pos, self.settings.nBack))
+
     def nextSlide(self):
-        if self.settings.debug and len(self.history) >= self.settings.nBack+1:
-            if self.identified and self.history[-(1+self.settings.nBack)] == self.history[-1]:
-                self.results[0] += 1
-                print("Correct, {0} is equal to {1} with nBack={2}.".format(self.history[-(1+self.settings.nBack)], self.history[-1], self.settings.nBack))
-            elif self.identified and self.history[-(1+self.settings.nBack)] != self.history[-1]:
-                self.results[3]
-                print("Wrong, {0} is not equal to {1} with nBack={2}.".format(self.history[-(1+self.settings.nBack)], self.history[-1], self.settings.nBack))
-            elif self.history[-(1+self.settings.nBack)] != self.history[-1]:
-                self.results[1] += 1
-                print("Avoided it, {0} is not equal to {1} with nBack={2}.".format(self.history[-(1+self.settings.nBack)], self.history[-1], self.settings.nBack))
-            elif self.history[-(1+self.settings.nBack)] == self.history[-1]:
-                print("Missed it, {0} is equal to {1} with nBack={2}.".format(self.history[-(1+self.settings.nBack)], self.history[-1], self.settings.nBack))
-                self.results[2] += 1
-                
-        if random.randint(1,self.settings.repeatProbability) == 1 and len(self.history) > 1:
+        if random.random() < self.settings.repeatProbability and not self.early_slide():
             '''This needs to be remade so that any of the last (self.nBack) numbers could be the next one.'''
-            self.history.append(self.history[-1])
+            position = self.history[random.randint(-(1+self.settings.nBack), -1)]
         else: 
-            self.position = random.randint(1,9)
-            self.history.append(self.position)
+            position = random.randint(1, 9)
+        self.history.append(position)
+
         if self.settings.debug:
             print("Slide number {0} generated with value: {1}".format(len(self.history), self.history[-1]))
-        self.identified = False
-        self.positionX = self.positions[self.position][0]
-        self.positionY = self.positions[self.position][1]
-        
-        if len(self.history) < self.settings.numOfSlides:
-            pass
-        else:
-            self.stop()
-            
-            
+
+        self.triggered = False
+        self.positionX = self.positions[self.currentPosition()][0]
+        self.positionY = self.positions[self.currentPosition()][1]
+
+    def currentPosition(self):
+        return self.history[-1]
+
     def showSlideSwitch(self):
-        self.showSlide = not self.showSlide
-        if self.showSlide == True:
-                self.nextSlide()
-                   
-    def getResults(self):
-        return self.results
+        self.show_answer = not self.show_answer
+
+        if not self.show_answer:
+            self.setNoAnswer()
+            pygame.time.set_timer(USEREVENT+1, self.settings.slideTime)
+            self.nextSlide()
+        else:
+            self.checkAnswer()
+            pygame.time.set_timer(USEREVENT+1, self.settings.slideTime/3)
+            if len(self.history) >= self.settings.numOfSlides:
+                # If enough slides have passed
+                self.stop()
 
 class Results(Activity):
-    def __init__(self, windowSize, android, results):
-        Activity.__init__(self, windowSize, android)
+    def __init__(self, results):
+        Activity.__init__(self)
         
         self.surface.convert_alpha()
         #self.surface.fill((255,255,255,100))
@@ -166,8 +227,8 @@ class Results(Activity):
         self.normalFont = pygame.font.Font("fonts/freesansbold.ttf", 20)
         self.smallFont = pygame.font.Font("fonts/freesansbold.ttf", 15)
         
-        self.panelSurfaceBase = pygame.Surface((150,self.windowSize[1]))
-        self.panelSurfaceBase.fill((50,50,50))
+        self.panelSurfaceBase = pygame.Surface((150, self.windowSize[1]))
+        self.panelSurfaceBase.fill((50, 50, 50))
         
         self.panelSurfaceLeft = pygame.Surface.copy(self.panelSurfaceBase)
         self.panelSurfaceRight = pygame.Surface.copy(self.panelSurfaceBase)
@@ -175,16 +236,16 @@ class Results(Activity):
         self.panelSurfaceLeft = pygame.Surface.copy(self.panelSurfaceBase)
         self.panelSurfaceRight = pygame.Surface.copy(self.panelSurfaceBase)
         
-        resultsHeader = self.normalFont.render("Results", True, (255,255,0))
-        resultsCorrect = self.smallFont.render("Correct: {0}".format(results[0]), True, (255,255,0))
-        resultsWrong = self.smallFont.render("Wrong: {0}".format(results[3]), True, (255,255,0))
-        resultsAvoid = self.smallFont.render("Avoided: {0}".format(results[1]), True, (255,255,0))
-        resultsMiss = self.smallFont.render("Missed: {0}".format(results[2]), True, (255,255,0))
-        self.panelSurfaceRight.blit(resultsHeader, (10,10))
-        self.panelSurfaceRight.blit(resultsCorrect, (10,40))
-        self.panelSurfaceRight.blit(resultsWrong, (10,60))
-        self.panelSurfaceRight.blit(resultsAvoid, (10,80))
-        self.panelSurfaceRight.blit(resultsMiss, (10,100))
+        resultsHeader = self.normalFont.render("Results", True, (255, 255, 0))
+        resultsCorrect = self.smallFont.render("Correct: {0}".format(results["correct"]), True, (255, 255, 0))
+        resultsWrong = self.smallFont.render("Wrong: {0}".format(results["wrong"]), True, (255, 255, 0))
+        resultsAvoid = self.smallFont.render("Avoided: {0}".format(results["avoid"]), True, (255, 255, 0))
+        resultsMiss = self.smallFont.render("Missed: {0}".format(results["miss"]), True, (255, 255, 0))
+        self.panelSurfaceRight.blit(resultsHeader, (10, 10))
+        self.panelSurfaceRight.blit(resultsCorrect, (10, 40))
+        self.panelSurfaceRight.blit(resultsWrong, (10, 60))
+        self.panelSurfaceRight.blit(resultsAvoid, (10, 80))
+        self.panelSurfaceRight.blit(resultsMiss, (10, 100))
         
         self.surface.blit(self.panelSurfaceLeft, (0, 0))
         self.surface.blit(self.panelSurfaceRight, ((self.windowSize[0]-self.panelSurfaceRight.get_width()), 0))
